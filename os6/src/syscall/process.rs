@@ -1,16 +1,18 @@
 //! Process management syscalls
 
-use crate::mm::{translated_refmut, translated_ref, translated_str};
-use crate::task::{
-    add_task, current_task, current_user_token, exit_current_and_run_next,
-    suspend_current_and_run_next, TaskStatus,
-};
+use crate::config::MAX_SYSCALL_NUM;
 use crate::fs::{open_file, OpenFlags};
+use crate::mm::{
+    get_slice_buffer, mmap, munmap, translated_ref, translated_refmut, translated_str,
+};
+use crate::task::{
+    add_task, current_task, current_user_token, exit_current_and_run_next, get_cur_task_info,
+    suspend_current_and_run_next, TaskControlBlock, TaskStatus,
+};
 use crate::timer::get_time_us;
+use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use crate::config::MAX_SYSCALL_NUM;
-use alloc::string::String;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -71,7 +73,6 @@ pub fn sys_exec(path: *const u8) -> isize {
     }
 }
 
-
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
 pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
@@ -112,37 +113,65 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
 // YOUR JOB: 引入虚地址后重写 sys_get_time
 pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
     let _us = get_time_us();
-    // unsafe {
-    //     *ts = TimeVal {
-    //         sec: us / 1_000_000,
-    //         usec: us % 1_000_000,
-    //     };
-    // }
-    0
+    let (sec, usec) = (_us / 1_000_000, _us % 1_000_000);
+    // info!("[get time], sec{}", _us / 1_000_000);
+    let ts = TimeVal { sec, usec };
+    if let Some(buffer) = get_slice_buffer::<TimeVal>(_ts as usize) {
+        *buffer = ts;
+        0
+    } else {
+        -1
+    }
 }
 
 // YOUR JOB: 引入虚地址后重写 sys_task_info
 pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
+    let task_info = get_cur_task_info();
+    if let Some(info) = task_info {
+        if let Some(buffer) = get_slice_buffer::<TaskInfo>(ti as usize) {
+            *buffer = info;
+            return 0;
+        }
+    }
     -1
 }
 
 // YOUR JOB: 实现sys_set_priority，为任务添加优先级
 pub fn sys_set_priority(_prio: isize) -> isize {
-    -1
+    if let Some(cur_task) = current_task() {
+        cur_task.set_priority(_prio)
+    } else {
+        -1
+    }
 }
 
 // YOUR JOB: 扩展内核以实现 sys_mmap 和 sys_munmap
-pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
-    -1
+pub fn sys_mmap(_start: usize, _len: usize, _prot: usize) -> isize {
+    mmap(_start, _len, _prot)
 }
 
 pub fn sys_munmap(_start: usize, _len: usize) -> isize {
-    -1
+    munmap(_start, _len)
 }
 
 //
 // YOUR JOB: 实现 sys_spawn 系统调用
-// ALERT: 注意在实现 SPAWN 时不需要复制父进程地址空间，SPAWN != FORK + EXEC 
-pub fn sys_spawn(_path: *const u8) -> isize {
+// ALERT: 注意在实现 SPAWN 时不需要复制父进程地址空间，SPAWN != FORK + EXEC
+pub fn sys_spawn(path: *const u8) -> isize {
+    if let Some(cur_task) = current_task() {
+        let token = current_user_token();
+        let path = translated_str(token, path);
+
+        if let Some(inode) = open_file(&path, OpenFlags::RDONLY) {
+            if let Ok(child) = cur_task.spawn(inode.read_all().as_slice()) {
+                let ctx = child.inner_exclusive_access().get_trap_cx();
+                // info!("context: {:?}",ctx.x);
+                ctx.x[10] = 0;
+                let pid = child.getpid();
+                add_task(child);
+                return pid as isize;
+            };
+        }
+    }
     -1
 }

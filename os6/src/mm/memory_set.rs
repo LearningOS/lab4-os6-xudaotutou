@@ -6,6 +6,7 @@ use super::{PhysAddr, PhysPageNum, VirtAddr, VirtPageNum};
 use super::{StepByOne, VPNRange};
 use crate::config::{MEMORY_END, PAGE_SIZE, TRAMPOLINE, TRAP_CONTEXT, USER_STACK_SIZE, MMIO};
 use crate::sync::UPSafeCell;
+use crate::task::current_task;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -268,6 +269,70 @@ impl MemorySet {
         //*self = Self::new_bare();
         self.areas.clear();
     }
+    pub fn mmap(&mut self, start: usize, end: usize, prot: usize) -> isize {
+        let (lvpn, rvpn) = (VirtAddr::from(start).floor(), VirtAddr::from(end).ceil());
+
+        if self
+            .areas
+            .iter()
+            .any(|area| area.vpn_range.get_end() > area.vpn_range.get_start() && lvpn < area.vpn_range.get_end() && rvpn > area.vpn_range.get_start())
+        {
+            // [start, end)
+            error!("already mapped");
+            error!("end,{:?}",self.page_table.translate(rvpn).unwrap().ppn());
+            return -1;
+        }
+        let mut permission = MapPermission::from_bits((prot as u8) << 1).unwrap();
+        permission.set(MapPermission::U, true);
+
+        self.insert_framed_area(lvpn.into(), rvpn.into(), permission);
+
+
+        0
+    }
+    pub fn munmap(&mut self, start: usize, end: usize) -> isize {
+        println!("unmap!!!,start: {:#x}, end: {:#x}", start, end);
+        let (lvpn, rvpn) = (VirtAddr::from(start).floor(), VirtAddr::from(end).ceil());
+        // println!("unmap!!!");
+        if self
+            .areas
+            .iter()
+            .filter_map(|area| {
+                let (start, end) = (area.vpn_range.get_start(), area.vpn_range.get_end());
+                if start >= lvpn && end <= rvpn {
+                    Some(end.0 - start.0)
+                } else {
+                    None
+                }
+            })
+            .sum::<usize>()
+            < (rvpn.0 - lvpn.0)
+        {
+            error!("already mapped");
+            return -1;
+        }
+        let pte = &mut self.page_table;
+        self.areas.iter_mut().for_each(|area| {
+            let l = area.vpn_range.get_start();
+            let r = area.vpn_range.get_end();
+            info!(
+                "[unmap] [find]: l: {:?}, r: {:?}, start: {:?}, end: {:?}",
+                l, r, lvpn, rvpn
+            );
+            if lvpn <= l && r <= rvpn {
+                info!("[unmap]: success,l,r:({:?}, {:?})", l, r);
+                // match self.translate(l) {
+                //     Some(v) => info!("male {:?}", v.ppn()),
+                //     None => info!("yes"),
+                // }
+                area.unmap(pte);
+                area.vpn_range = VPNRange::new(l, l);
+            }
+        });
+        self.areas.retain(|area| area.vpn_range.get_start() < area.vpn_range.get_end());
+
+        0
+    }      
 }
 
 /// map area structure, controls a contiguous piece of virtual memory
@@ -379,6 +444,42 @@ bitflags! {
     }
 }
 
+pub fn mmap(start: usize, len: usize, prot: usize) -> isize {
+    if len == 0 {
+        info!("reason1");
+        return 0;
+    }
+    // 0，1，2位有效，其他位必须为0,mask => b 0...0111 =>0x7
+    if (prot >> 3) != 0 || (prot & 0x7) == 0 || start % 4096 != 0 {
+        info!("reason2");
+        return -1;
+    }
+    if let Some(cur_tcb) = current_task() {
+        let mut inner = cur_tcb.inner_exclusive_access();
+        let end = start + len;
+        println!("mmap!!!");
+        inner.memory_set.mmap(start, end, prot)
+    } else {
+        -1
+    }
+}
+
+pub fn munmap(start: usize, len: usize) -> isize {
+    if len == 0 {
+        return 0;
+    }
+    if start % 4096 != 0 {
+        return -1;
+    }
+    if let Some(cur_tcb) = current_task() {
+        let mut inner = cur_tcb.inner_exclusive_access();
+        inner.memory_set.munmap(start, start + len)
+    } else {
+        -1
+    }
+}
+
+
 #[allow(unused)]
 pub fn remap_test() {
     let mut kernel_space = KERNEL_SPACE.exclusive_access();
@@ -402,3 +503,4 @@ pub fn remap_test() {
         .executable());
     info!("remap_test passed!");
 }
+

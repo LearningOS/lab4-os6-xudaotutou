@@ -33,7 +33,7 @@ pub use context::TaskContext;
 pub use manager::add_task;
 pub use pid::{pid_alloc, KernelStack, PidHandle};
 pub use processor::{
-    current_task, current_trap_cx, current_user_token, run_tasks, schedule, take_current_task,
+    current_task, current_trap_cx, current_user_token, run_tasks, schedule, take_current_task,get_cur_task_info
 };
 
 /// Make current task suspended and switch to the next task
@@ -46,6 +46,8 @@ pub fn suspend_current_and_run_next() {
     let task_cx_ptr = &mut task_inner.task_cx as *mut TaskContext;
     // Change status to Ready
     task_inner.task_status = TaskStatus::Ready;
+    task_inner.pass += task_inner.stride;
+    if task_inner.time == 0 {task_inner.time = get_time_us();}
     drop(task_inner);
     // ---- release current PCB
 

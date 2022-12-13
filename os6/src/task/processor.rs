@@ -5,7 +5,7 @@
 //! and the replacement and transfer of control flow of different applications are executed.
 
 
-use super::__switch;
+use super::{__switch, TaskInfo};
 use super::{fetch_task, TaskStatus};
 use super::{TaskContext, TaskControlBlock};
 use crate::sync::UPSafeCell;
@@ -102,4 +102,9 @@ pub fn schedule(switched_task_cx_ptr: *mut TaskContext) {
     unsafe {
         __switch(switched_task_cx_ptr, idle_task_cx_ptr);
     }
+}
+
+
+pub fn get_cur_task_info()->Option<TaskInfo> {
+    current_task().map(|cur| cur.task_info())
 }
