@@ -10,7 +10,7 @@ use spin::{Mutex, MutexGuard};
 /// Virtual filesystem layer over easy-fs
 
 pub struct Inode {
-    block_id: usize,
+    pub block_id: usize,
     block_offset: usize,
     fs: Arc<Mutex<EasyFileSystem>>,
     block_device: Arc<dyn BlockDevice>,
@@ -32,7 +32,7 @@ impl Inode {
         }
     }
     /// Call a function over a disk inode to read it
-    fn read_disk_inode<V>(&self, f: impl FnOnce(&DiskInode) -> V) -> V {
+    pub fn read_disk_inode<V>(&self, f: impl FnOnce(&DiskInode) -> V) -> V {
         get_block_cache(self.block_id, Arc::clone(&self.block_device))
             .lock()
             .read(self.block_offset, f)
@@ -191,6 +191,10 @@ impl Inode {
     // pub fn getStat(&self)->Stat {
 
     // }
+    fn get_inode_id(&self) -> usize {
+        let fs = self.fs.lock();
+        fs.get_inode_id(self.block_id as u32, self.block_offset)
+    }
     /// root上使用
     pub fn link(&self, old_name: &str, new_name: &str) -> isize {
         if self
@@ -249,5 +253,23 @@ impl Inode {
             return 0;
         }
         -1
+    }
+    pub fn nums_of_link(&self, inode: &Arc<Inode>) -> u32 {
+        let inode_id = inode.get_inode_id() as u32;
+        let mut links: u32 = 0;
+        self.read_disk_inode(|root_inode| {
+            let file_count = (root_inode.size as usize) / DIRENT_SZ;
+            let mut dir_entry = DirEntry::empty();
+            for i in 0..file_count {
+                assert_eq!(
+                    root_inode.read_at(i * DIRENT_SZ, dir_entry.as_bytes_mut(), &self.block_device),
+                    DIRENT_SZ
+                );
+                if dir_entry.inode_number() == inode_id {
+                    links += 1;
+                }
+            }
+        });
+        links
     }
 }

@@ -1,4 +1,4 @@
-use super::File;
+use super::{File, StatMode};
 use crate::drivers::BLOCK_DEVICE;
 use crate::mm::UserBuffer;
 use crate::sync::UPSafeCell;
@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 use bitflags::*;
 use easy_fs::{EasyFileSystem, Inode};
 use lazy_static::*;
-
+use super::Stat;
 /// A wrapper around a filesystem inode
 /// to implement File trait atop
 pub struct OSInode {
@@ -159,6 +159,22 @@ impl File for OSInode {
         inner.offset = offset;
         total
         // total_write_size
+    }
+    fn status(&self, st: &mut Stat) -> usize {
+        let inode = &self.inner.exclusive_access().inode;
+        st.dev = 0;
+        st.mode = inode.read_disk_inode(|diskinode| {
+            if diskinode.is_dir() {
+                StatMode::DIR
+            }
+            else {
+                StatMode::FILE
+            }
+        });
+        st.ino = inode.block_id as u64;
+        st.nlink = ROOT_INODE.nums_of_link(inode);
+        st.pad = [0; 7];
+        0
     }
 }
 

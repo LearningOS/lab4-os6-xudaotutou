@@ -9,6 +9,7 @@ pub trait File: Send + Sync {
     fn writable(&self) -> bool;
     fn read(&self, buf: UserBuffer) -> usize;
     fn write(&self, buf: UserBuffer) -> usize;
+    fn status(&self, st: &mut Stat)->usize;
 }
 
 /// The stat of a inode
