@@ -24,6 +24,11 @@ impl File for Stdin {
                 break;
             }
         }
+        // while console_getchar()==0 {
+        //     // 0=> suspend_current_and_run_next(),
+        //     suspend_current_and_run_next();
+        // }
+        
         let ch = c as u8;
         unsafe { user_buf.buffers[0].as_mut_ptr().write_volatile(ch); }
         1
