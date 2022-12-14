@@ -86,8 +86,10 @@ pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
     if let Some(file) = &inner.fd_table[_fd] {
         println!("keng");
         let res = unsafe { file.status(&mut *((pa.0 + offset) as *mut Stat)) as isize };
+        drop(inner);
         res
     } else {
+        drop(inner);
         -1
     }
 }
