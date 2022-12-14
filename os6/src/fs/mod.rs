@@ -25,7 +25,7 @@ pub struct Stat {
     /// number of hard links
     pub nlink: u32,
     /// unused pad
-    pad: [u64; 7],
+    pub(crate) pad: [u64; 7],
 }
 
 bitflags! {

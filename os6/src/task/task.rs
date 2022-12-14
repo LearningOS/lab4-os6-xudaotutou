@@ -9,7 +9,7 @@ use crate::timer::get_time_us;
 use crate::trap::{trap_handler, TrapContext};
 use alloc::sync::{Arc, Weak};
 use alloc::vec::{Vec, self};
-use core::cell::RefMut;
+use core::cell::{RefMut, Ref};
 use crate::fs::{File, Stdin, Stdout};
 use alloc::string::String;
 use crate::mm::translated_refmut;
@@ -96,7 +96,9 @@ impl TaskControlBlock {
     pub fn inner_exclusive_access(&self) -> RefMut<'_, TaskControlBlockInner> {
         self.inner.exclusive_access()
     }
-
+    pub fn inner_exclusive_access_read(&self) -> Ref<'_, TaskControlBlockInner> {
+        self.inner.exclusive_access_read()
+    }
     /// Create a new process
     ///
     /// At present, it is only used for the creation of initproc

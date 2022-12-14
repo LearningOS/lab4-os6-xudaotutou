@@ -216,11 +216,13 @@ impl Inode {
         {
             let mut fs = self.fs.lock();
             self.modify_disk_inode(|root_inode| {
-                let new_size = root_inode.size as usize + DIRENT_SZ;
+                let file_count = (root_inode.size as usize) / DIRENT_SZ;
+                let new_size = (file_count + 1) * DIRENT_SZ;
                 self.increase_size(new_size as u32, root_inode, &mut fs);
                 let dirent = DirEntry::new(new_name, id);
+                info!("new_name: {}, id: {}",new_name, id);
                 root_inode.write_at(
-                    root_inode.size as usize,
+                    file_count * DIRENT_SZ,
                     dirent.as_bytes(),
                     &self.block_device,
                 );

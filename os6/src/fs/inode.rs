@@ -161,8 +161,7 @@ impl File for OSInode {
         total_write_size
     }
     fn status(&self, st: &mut Stat) -> usize {
-        let inode = &self.inner.exclusive_access().inode;
-        st.dev = 0;
+        let inode = &self.inner.exclusive_access().inode.clone();
         st.mode = inode.read_disk_inode(|diskinode| {
             if diskinode.is_dir() {
                 StatMode::DIR
@@ -175,13 +174,17 @@ impl File for OSInode {
         let nlink = ROOT_INODE.nums_of_link(inode);
         println!("nlink:{}",nlink);
         st.nlink = nlink;
-        st.pad = [0; 7];
         0
     }
 }
 
 pub fn linkat(old_path: &str, new_path: &str) -> isize {
-    ROOT_INODE.link(old_path, new_path)
+    if let Some(_) = ROOT_INODE.find(old_path) {
+        ROOT_INODE.link(old_path, new_path)
+    } else {
+        -1
+    }
+    
 }
 pub fn unlinkat(name:&str)->isize{
     ROOT_INODE.unlink(name)

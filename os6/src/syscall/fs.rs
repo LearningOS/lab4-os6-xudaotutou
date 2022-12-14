@@ -1,9 +1,11 @@
 //! File and filesystem-related syscalls
 
+use crate::fs::StatMode;
 use crate::fs::open_file;
 use crate::fs::OpenFlags;
 use crate::fs::Stat;
 use crate::fs::{linkat, unlinkat};
+use crate::mm::get_slice_buffer;
 use crate::mm::translated_str;
 use crate::mm::UserBuffer;
 use crate::mm::{translated_byte_buffer, PageTable, PhysAddr, VirtAddr};
@@ -83,7 +85,8 @@ pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
     let inner = task.inner_exclusive_access();
     if let Some(file) = &inner.fd_table[_fd] {
         println!("keng");
-        unsafe { file.status(&mut *((pa.0 + offset) as *mut Stat)) as isize }
+        let res = unsafe { file.status(&mut *((pa.0 + offset) as *mut Stat)) as isize };
+        res
     } else {
         -1
     }
