@@ -72,16 +72,6 @@ pub fn sys_close(fd: usize) -> isize {
 
 // YOUR JOB: 扩展 easy-fs 和内核以实现以下三个 syscall
 pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
-    let task = current_task().unwrap();
-
-    let inner = task.inner_exclusive_access();
-
-    if _fd >= inner.fd_table.len() {
-        return -1;
-    }
-    if inner.fd_table[_fd].is_none() {
-        return -1;
-    }
     let token = current_user_token();
     let page_table = PageTable::from_token(token);
     let va = VirtAddr::from(_st as usize);
@@ -89,7 +79,10 @@ pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
     let ppn = page_table.translate(vpn).unwrap().ppn();
     let offset = va.page_offset();
     let pa: PhysAddr = ppn.into();
+    let task = current_task().unwrap();
+    let inner = task.inner_exclusive_access();
     if let Some(file) = &inner.fd_table[_fd] {
+        println!("keng");
         unsafe { file.status(&mut *((pa.0 + offset) as *mut Stat)) as isize }
     } else {
         -1

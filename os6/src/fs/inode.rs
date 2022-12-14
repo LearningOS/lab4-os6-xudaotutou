@@ -46,9 +46,9 @@ impl OSInode {
         }
         v
     }
-    pub fn inner_exclusive_access(&self) -> RefMut<OSInodeInner> {
-        self.inner.exclusive_access()
-    }
+    // pub fn inner_exclusive_access(&self) -> RefMut<OSInodeInner> {
+    //     self.inner.exclusive_access()
+    // }
 }
 
 lazy_static! {
@@ -140,25 +140,25 @@ impl File for OSInode {
     }
     fn write(&self, buf: UserBuffer) -> usize {
         let mut inner = self.inner.exclusive_access();
-        // let mut total_write_size = 0usize;
-        // for slice in buf.buffers.iter() {
-        //     let write_size = inner.inode.write_at(inner.offset, *slice);
-        //     assert_eq!(write_size, slice.len());
-        //     inner.offset += write_size;
-        //     total_write_size += write_size;
-        // }
+        let mut total_write_size = 0usize;
+        for slice in buf.buffers.iter() {
+            let write_size = inner.inode.write_at(inner.offset, *slice);
+            assert_eq!(write_size, slice.len());
+            inner.offset += write_size;
+            total_write_size += write_size;
+        }
         // 我改动的
-        let (offset, total) =
-            buf.buffers
-                .iter()
-                .fold((inner.offset, 0usize), |(offset, write_size), slice| {
-                    let size = inner.inode.write_at(offset, slice);
-                    assert_eq!(write_size, slice.len());
-                    (offset + size, write_size + size)
-                });
-        inner.offset = offset;
-        total
-        // total_write_size
+        // let (offset, total) =
+        //     buf.buffers
+        //         .iter()
+        //         .fold((inner.offset, 0usize), |(offset, write_size), slice| {
+        //             let size = inner.inode.write_at(offset, slice);
+        //             assert_eq!(write_size, slice.len());
+        //             (offset + size, write_size + size)
+        //         });
+        // inner.offset = offset;
+        // total
+        total_write_size
     }
     fn status(&self, st: &mut Stat) -> usize {
         let inode = &self.inner.exclusive_access().inode;
@@ -172,7 +172,9 @@ impl File for OSInode {
             }
         });
         st.ino = inode.block_id as u64;
-        st.nlink = ROOT_INODE.nums_of_link(inode);
+        let nlink = ROOT_INODE.nums_of_link(inode);
+        println!("nlink:{}",nlink);
+        st.nlink = nlink;
         st.pad = [0; 7];
         0
     }

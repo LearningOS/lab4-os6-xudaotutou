@@ -1,3 +1,5 @@
+
+
 use super::{
     block_cache_sync_all, get_block_cache, BlockDevice, DirEntry, DiskInode, DiskInodeType,
     EasyFileSystem, DIRENT_SZ,
@@ -5,6 +7,7 @@ use super::{
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use log::info;
 use spin::{Mutex, MutexGuard};
 
 /// Virtual filesystem layer over easy-fs
@@ -265,6 +268,7 @@ impl Inode {
                     root_inode.read_at(i * DIRENT_SZ, dir_entry.as_bytes_mut(), &self.block_device),
                     DIRENT_SZ
                 );
+                info!("inode_number:{}, inode_id:{}",dir_entry.inode_number(), inode_id );
                 if dir_entry.inode_number() == inode_id {
                     links += 1;
                 }

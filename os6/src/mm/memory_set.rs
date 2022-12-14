@@ -321,18 +321,14 @@ impl MemorySet {
             );
             if lvpn <= l && r <= rvpn {
                 info!("[unmap]: success,l,r:({:?}, {:?})", l, r);
-                // match self.translate(l) {
-                //     Some(v) => info!("male {:?}", v.ppn()),
-                //     None => info!("yes"),
-                // }
                 area.unmap(pte);
                 area.vpn_range = VPNRange::new(l, l);
             }
         });
         self.areas.retain(|area| area.vpn_range.get_start() < area.vpn_range.get_end());
-
         0
-    }      
+    }
+
 }
 
 /// map area structure, controls a contiguous piece of virtual memory

@@ -3,16 +3,14 @@
 use crate::config::MAX_SYSCALL_NUM;
 use crate::fs::{open_file, OpenFlags};
 use crate::mm::{
-    get_slice_buffer, mmap, munmap, translated_ref, translated_refmut, translated_str,
+    get_slice_buffer, mmap, munmap, translated_refmut, translated_str,
 };
 use crate::task::{
     add_task, current_task, current_user_token, exit_current_and_run_next, get_cur_task_info,
-    suspend_current_and_run_next, TaskControlBlock, TaskStatus,
+    suspend_current_and_run_next, TaskStatus,
 };
 use crate::timer::get_time_us;
-use alloc::string::String;
 use alloc::sync::Arc;
-use alloc::vec::Vec;
 
 #[repr(C)]
 #[derive(Debug)]

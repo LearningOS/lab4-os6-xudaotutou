@@ -36,7 +36,7 @@ impl File for Stdin {
     fn write(&self, _user_buf: UserBuffer) -> usize {
         panic!("Cannot write to stdin!");
     }
-    fn status(&self, st: &mut Stat) -> usize {
+    fn status(&self, _st: &mut Stat) -> usize {
         1
     }
 }
@@ -53,7 +53,7 @@ impl File for Stdout {
         }
         user_buf.len()
     }
-    fn status(&self, st: &mut Stat) -> usize {
+    fn status(&self, _st: &mut Stat) -> usize {
         1
     }
 }
