@@ -11,14 +11,17 @@ use user_lib::{close, fstat, open, OpenFlags, Stat, StatMode};
 pub fn main() -> i32 {
     let fname = "fname1\0";
     let fd = open(fname, OpenFlags::CREATE | OpenFlags::WRONLY);
+    println!("open");
     assert!(fd > 0);
     let fd = fd as usize;
     let stat: Stat = Stat::new();
     let ret = fstat(fd, &stat);
+    println!("stat");
     assert_eq!(ret, 0);
     assert_eq!(stat.mode, StatMode::FILE);
     assert_eq!(stat.nlink, 1);
     close(fd);
+    println!("close");
     // unlink(fname);
     // It's recommended to rebuild the disk image. This program will not clean the file "fname1".
     println!("Test fstat OK!");

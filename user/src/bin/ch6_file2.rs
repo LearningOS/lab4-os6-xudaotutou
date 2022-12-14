@@ -12,10 +12,13 @@ pub fn main() -> i32 {
     let test_str = "Hello, world!";
     let fname = "fname2\0";
     let (lname0, lname1, lname2) = ("linkname0\0", "linkname1\0", "linkname2\0");
+    println!("1");
     let fd = open(fname, OpenFlags::CREATE | OpenFlags::WRONLY) as usize;
     link(fname, lname0);
+    println!("link");
     let stat = Stat::new();
     fstat(fd, &stat);
+    println!("stat");
     assert_eq!(stat.nlink, 2);
     link(fname, lname1);
     link(fname, lname2);

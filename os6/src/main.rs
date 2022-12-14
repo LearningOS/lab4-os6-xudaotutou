@@ -43,7 +43,7 @@ mod drivers;
 mod fs;
 
 core::arch::global_asm!(include_str!("entry.asm"));
-
+pub use console::*;
 /// clear BSS segment
 fn clear_bss() {
     extern "C" {

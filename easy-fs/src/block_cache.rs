@@ -96,7 +96,8 @@ impl BlockCacheManager {
         if let Some(pair) = self.queue
             .iter()
             .find(|pair| pair.0 == block_id) {
-                Arc::clone(&pair.1)
+                // Arc::clone(&pair.1)
+                pair.1.clone()// 我改的
         } else {
             // substitute
             if self.queue.len() == BLOCK_CACHE_SIZE {

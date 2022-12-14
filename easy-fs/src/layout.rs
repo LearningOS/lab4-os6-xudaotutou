@@ -9,15 +9,15 @@ use alloc::vec::Vec;
 
 /// Magic number for sanity check
 const EFS_MAGIC: u32 = 0x3b800001;
-/// The max number of direct inodes
+/// The max number of direct inodes, 直接索引数组的最大数，
 const INODE_DIRECT_COUNT: usize = 28;
 /// The max length of inode name
 const NAME_LENGTH_LIMIT: usize = 27;
-/// The max number of indirect1 inodes
+/// The max number of indirect1 inodes，一次间指的最大数
 const INODE_INDIRECT1_COUNT: usize = BLOCK_SZ / 4;
-/// The max number of indirect2 inodes
+/// The max number of indirect2 inodes，2次间指的最大数
 const INODE_INDIRECT2_COUNT: usize = INODE_INDIRECT1_COUNT * INODE_INDIRECT1_COUNT;
-/// The upper bound of direct inode index
+/// The upper bound of direct inode index，bound系列是从算之前的总计范围，count是当前级别的范围
 const DIRECT_BOUND: usize = INODE_DIRECT_COUNT;
 /// The upper bound of indirect1 inode index
 const INDIRECT1_BOUND: usize = DIRECT_BOUND + INODE_INDIRECT1_COUNT;
@@ -119,6 +119,7 @@ impl DiskInode {
         Self::_data_blocks(self.size)
     }
     fn _data_blocks(size: u32) -> u32 {
+        // 向上取整
         (size + BLOCK_SZ as u32 - 1) / BLOCK_SZ as u32
     }
     /// Get the number of data blocks required for the given size of data
@@ -126,13 +127,17 @@ impl DiskInode {
         let data_blocks = Self::_data_blocks(size) as usize;
         let mut total = data_blocks as usize;
         // indirect1
+        // 最少得补个1级间指
         if data_blocks > INODE_DIRECT_COUNT {
             total += 1;
         }
         // indirect2
+        // 一级间指补满也没用，再补个二级间指
         if data_blocks > INDIRECT1_BOUND {
+            // 二级间指
             total += 1;
             // sub indirect1
+            // 计算补满的一级间指
             total += (data_blocks - INDIRECT1_BOUND + INODE_INDIRECT1_COUNT - 1) / INODE_INDIRECT1_COUNT;
         }
         total as u32
