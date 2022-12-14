@@ -243,57 +243,12 @@ impl TaskControlBlock {
     pub fn getpid(&self) -> usize {
         self.pid.0
     }
-    pub fn spawn(self: &Arc<TaskControlBlock>, elf_data: &[u8]) -> Result<Arc<TaskControlBlock>, isize> {
-        // ---- access parent PCB exclusively
+    pub fn spawn(self: &Arc<TaskControlBlock>, elf_data: &[u8]) -> Arc<TaskControlBlock> {
+        let task_control_block = Arc::new(TaskControlBlock::new(elf_data));
         let mut parent_inner = self.inner_exclusive_access();
-        // alloc a pid and a kernel stack in kernel space
-        let pid = pid_alloc();
-        let kernel_stack = KernelStack::new(&pid);
-        let kernel_stack_top = kernel_stack.get_top();
-
-        let (memory_set, user_sp, entry_point) = MemorySet::from_elf(elf_data);
-        if let Some(pte) = memory_set.translate(VirtAddr::from(TRAP_CONTEXT).into()) {
-            let trap_cx_ppn = pte.ppn();
-            let cx = trap_cx_ppn.get_mut::<TrapContext>();
-
-            *cx = TrapContext::app_init_context(
-                entry_point,
-                user_sp,
-                KERNEL_SPACE.exclusive_access().token(),
-                kernel_stack_top,
-                trap_handler as usize,
-            );
-            // 其实是pcb
-            let task_control_block = Arc::new(TaskControlBlock {
-                pid,
-                kernel_stack,
-                inner: unsafe {
-                    UPSafeCell::new(TaskControlBlockInner {
-                        trap_cx_ppn,
-                        base_size: parent_inner.base_size,
-                        task_cx: TaskContext::goto_trap_return(kernel_stack_top),
-                        task_status: TaskStatus::Ready,
-                        memory_set,
-                        parent: Some(Arc::downgrade(self)),
-                        children: Vec::new(),
-                        exit_code: 0,
-                        pass: 0,
-                        stride: BIG_STRIDE / 0x10,
-                        priority: 16,
-                        syscall_times: [0;MAX_SYSCALL_NUM],
-                        time: 0,
-                        fd_table: Vec::new(),
-                    })
-                },
-            });
-
-            // add child
-            parent_inner.children.push(task_control_block.clone());
-            Ok(task_control_block)
-        } else {
-            // 申请不到页号
-            Err(-1)
-        }
+        parent_inner.children.push(task_control_block.clone());
+        task_control_block.inner.exclusive_access().parent = Some(Arc::downgrade(self));
+        task_control_block
     }
     pub fn set_priority(self: &Arc<TaskControlBlock>, prio: isize) -> isize {
         if prio >= 2 {

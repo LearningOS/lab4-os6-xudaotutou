@@ -2,9 +2,7 @@
 
 use crate::config::MAX_SYSCALL_NUM;
 use crate::fs::{open_file, OpenFlags};
-use crate::mm::{
-    get_slice_buffer, mmap, munmap, translated_refmut, translated_str,
-};
+use crate::mm::{get_slice_buffer, mmap, munmap, translated_refmut, translated_str};
 use crate::task::{
     add_task, current_task, current_user_token, exit_current_and_run_next, get_cur_task_info,
     suspend_current_and_run_next, TaskStatus,
@@ -161,14 +159,10 @@ pub fn sys_spawn(path: *const u8) -> isize {
         let path = translated_str(token, path);
 
         if let Some(inode) = open_file(&path, OpenFlags::RDONLY) {
-            if let Ok(child) = cur_task.spawn(inode.read_all().as_slice()) {
-                let ctx = child.inner_exclusive_access().get_trap_cx();
-                // info!("context: {:?}",ctx.x);
-                ctx.x[10] = 0;
-                let pid = child.getpid();
-                add_task(child);
-                return pid as isize;
-            };
+            let child = cur_task.spawn(inode.read_all().as_slice());
+            let pid = child.getpid();
+            add_task(child);
+            return pid as isize;
         }
     }
     -1
